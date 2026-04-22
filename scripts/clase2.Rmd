@@ -1,0 +1,494 @@
+---
+title: "Introducción al análisis de datos con R para Ciencias Sociales"
+author: "Núcleo de Innovación Social"
+date: "2026-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Objetos
+
+En R todo es un objeto.
+
+Antes de avanzar, tengamos en cuenta que cuando R se ejecuta nos devuelve un valor, esta salida podemos chequearla en la consola. 
+
+Por ejemplo, si lo usamos cual calculadora:
+
+```{r}
+
+10 + 1
+
+```
+
+
+# Operadores
+
+## Operadores de asignación
+
+Volviendo a los objetos, en R podemos crear un objeto y asignarlo. Para ellos, se emplean los **operadores de asignación** de la siguiente forma:   `<-` `(alt + -)`; o con `=`.
+
+Por ejemplo, creemos el objeto edad y le asignamos un valor: 
+
+```{r}
+edad  <- 27
+edad
+
+edad_dos = 40
+edad_dos
+```
+
+En el **Enviroment** vamos a ver que el objeto está creado. También podemos consultar cuál es el valor del objeto llamandolo (selecciono y presiono `ctrl + enter`). 
+
+## Operadores lógicos y relacionales
+
+Estos se utilizan para describir relaciones lógicas, expresadas como **verdadero (TRUE)** o **falso (FALSE)**, y para hacer comparaciones.
+
+Por ejemplo:
+
+```{r}
+barrio_uno <- "Flores"
+
+barrio_dos <- "Almagro"
+
+#Preguntemosle a R si estos objetos poseen valores iguales: 
+
+barrio_uno == barrio_dos
+
+#Valores distintos:
+
+barrio_uno != barrio_dos
+
+#Valores incluidos en otro objeto: 
+
+barrio_tres <- "Palermo"
+
+todos_los_barrios <- c(barrio_uno, barrio_dos, barrio_tres)
+
+barrio_uno %in% todos_los_barrios
+
+#Qué pasa si quiero chequear que no esté incluído un valor?
+
+! "Paternal" %in% todos_los_barrios
+
+# Chequeo qué valor es mayor, menor, mayor o igual, en caso de objetos numéricos: 
+
+edad > edad_dos
+
+edad_dos <= edad
+
+```
+
+Entonces, los operadores son: 
+
+- Igual: `==`
+- Distinto: `!=`
+- Objeto dentro de valores: `%in%`
+- Expresión no incluída dentro de valores: `! %in%`
+- Mayor, menor o igual: `>`, `<=`
+
+Si bien hay más operadores, estos son los más usados en R. Podrán encontrar mayor información [aquí](https://bookdown.org/jboscomendoza/r-principiantes4/operadores-logicos.html).
+
+Con la función `rm()` podemos borrar los objetos del enviroment
+
+```{r}
+rm(edad_dos)
+rm(edad)
+```
+
+
+# Tipos de objetos
+
+En R, los objetos pueden ser de distinto tipo: 
+
+## Numéricos enteros (integer):
+
+```{r}
+
+edad_entera <- 67
+edad_entera
+
+```
+
+## Numéricos con decimal (numeric, float, doble):
+
+```{r}
+edad_exacta <- 67.6
+edad_exacta
+```
+
+## Cadenas de texto (Strings o Character):
+
+```{r}
+provincia <-  "Buenos Aires"
+provincia
+
+```
+
+Observen que este tipo de datos deben incluirse entre comillas. 
+
+## Factor (factor): 
+
+```{r}
+nivel_educativo <- as.factor(c("Inicial", "Primario", "secundario", "Terciario", "Universitario"))
+nivel_educativo
+```
+Es un tipo de objeto específico de R que permite describir un dato numérico mediante una etiqueta (como etiquetas de SPSS). 
+
+## Lógicos (logical):
+
+```{r}
+persona_identificada <- TRUE
+persona_identificada
+
+```
+
+## Fechas (Datetime, POSIXct y POSIXlt)
+
+```{r}
+
+fecha_hoy<-Sys.Date()
+fecha_hoy
+
+hora_hoy<-Sys.time()
+hora_hoy
+
+```
+
+Los valores tipo Date sólo nos indican la fecha, los valores tipo POSIXct y/o POSIXlt nos pueden indicar además la hora. Si bien parecen **strings**, no lo son y las operaciones que se pueden hacer con estos valores son distintas a las que se pueden hacer con strings. Un paquete muy útil para trabajar este tipo de datos es `lubridate()` y lo veremos en próximas clases.
+
+
+Además, existen objetos con valores perdidos o nulos:
+
+```{r}
+perdidos <- NA
+perdidos
+nulos <- NULL
+nulos
+
+```
+
+Podemos chequear el tipo o la clase del objeto: 
+
+```{r}
+class(nulos)
+class(provincia)
+```
+
+Los objetos en R pueden ser *coercionados*, forzados a ser de un tipo:
+
+```{r}
+provincia <- as.factor(provincia)
+class(provincia)
+
+edad <- as.character(edad)
+class(edad)
+
+hora_hoy<-as.character(hora_hoy)
+class(hora_hoy)
+
+hora_hoy<-as.POSIXct(hora_hoy)
+class(hora_hoy)
+
+```
+
+# Estructuras de datos
+
+Las estructuras de datos son **objetos que contienen datos**. Al igual que los objetos, existen de distintos tipos: 
+
+## Vectores
+
+Son colecciones de uno o más datos. Los datos que contiene un vector son del mismo tipo (si guardamos un número con un string, R nos va a forzar el número a tipo character):
+
+```{r}
+#único elemento
+pais <- "Peru"
+
+#Varios elementos
+paises <- c("Argentina", "Brasil", "Uruguay")
+
+class(paises)
+
+#puedo chequear si se trata de un vector
+is.vector(paises)
+
+#podemos incluir un vector, dentro de otro vector
+paises <- c(paises, pais)
+paises
+
+# armo un vector numérico
+notas <- c(8, 9, 10, 9.5)
+
+#si guardo un número con un string R nos va a forzar el número a tipo character
+datos_diferentes <- c(notas, "Colombia")
+
+# puedo hacer operaciones matematicas con los vectores numericos
+notas_corregidas <- notas-1.5
+
+notas_multiplicadas <- notas*5
+
+# selecciono elementos de un vector
+paises[2]
+
+paises[2:4]
+
+paises[c(2,4)]
+
+```
+
+## Matriz 
+
+Es un vector de más dimensiones (largo y alto): 
+
+```{r}
+#Matriz numérica sin dimensiones especificadas: 
+Anios <- matrix(2001:2009)
+Anios
+
+#Matriz con tres filas y tres columnas: 
+Trienios <- matrix(2001:2009, nrow = 3, ncol = 3)
+Trienios
+
+```
+
+Se pueden crear matrices uniendo vectores, con `cbind()` y `rbind()`:
+
+```{r}
+primer_cuatrimestre <- 1:4
+segundo_cuatrimestre <- 5:8
+
+#Cada vector es una columna
+encuestas <- cbind(primer_cuatrimestre, segundo_cuatrimestre)
+encuestas
+
+#Cada vector es una fila
+meses <- rbind(primer_cuatrimestre, segundo_cuatrimestre)
+meses
+
+```
+
+## Listas
+
+Contienen objetos que pueden ser de cualquier clase: números, vectores, matrices, funciones, data.frames, incluso otras listas. 
+
+```{r}
+
+listado <- list(1:10,"Lunes", pi, list(c(-1, -2)))
+listado
+
+#Cada elemento de la lista puede ser nombrado
+names(listado) <- c("numeros", "vector", "función", "lista")
+listado
+
+```
+
+## Dataframes
+
+Son estructuras rectangulares que pueden contener datos de distinto tipo. Al igual que la matriz, están compuestos por vectores. 
+
+Poseen el formato de una tabla:  *cada fila corresponde a un caso, sujeto, observación* y *cada columna a una variable, dimensión o atributo*.
+
+```{r}
+#Vectores
+nombre <- c("Zoe", "Ana", "Lucas", "Lucas")
+apellido <- c("Sanchez", "Garcia", "Fernandez", "Gonzalez")
+fecha_nacimiento <- c("1986-06-14", "1994-05-07", "1958-12-25", "1983-09-19")
+idpersona <- c(1889, 55262, 77893, 62294)
+
+#DF
+registro <- data.frame(nombre, apellido, fecha_nacimiento, idpersona)
+registro
+
+```
+
+# Acceder a los datos
+
+Antes de extraer datos, es posible explorar los distintos objetos y acceder a ellos. 
+
+Para conocer la estructura del objeto podemos usar `str()`:
+
+```{r}
+#df
+str(registro)
+
+#vector
+str(paises)
+
+```
+
+Podes acceder a los nombres de los elementos con `names()`: 
+
+```{r}
+
+#DF
+names(registro)
+
+#Se puede modificar el nombre de las columnas con la misma función: 
+
+names(registro) <- c("Nombres", "Apellidos", "Fechanac", "Idpersona")
+names(registro)
+
+#Lista
+names(listado)
+
+```
+
+Acceder a las primeras y últimas filas con `head()`y `tail()`:
+
+```{r}
+#primeras filas
+head(registro)
+
+#ultimas filas
+tail(registro)
+
+```
+
+
+Obtener un resumen con `summary()`:
+
+```{r}
+summary(registro)
+
+```
+
+Y acceder a los valores únicos o distintos con `unique()`:
+
+```{r}
+unique(registro$Nombres)
+```
+
+El `$` permite acceder a un subconjunto o elemento de un df o de una lista. También se pueden acceder a través de `[[]]`.
+
+```{r}
+
+unique(registro[["Nombres"]])
+
+```
+
+
+```{r}
+# accedemos a una "celda" del dataframr
+registro[2,4]
+
+# accedemos a 3 "celdas" de una columna
+registro[1:3, 2]
+
+# accedemos a valores de una columna que cumplan cierta condición
+registro[2, registro$id >= 5000]
+```
+
+
+Por último, se pueden ver la cantidad de categorías de una variable con `lenght()` o `distinct()` (esta última pertenece a la libería Dplyr, incluida en el paquete Tidyverse que veremos más adelante).
+
+```{r}
+
+length(unique(registro$Nombres))
+distinct(registro, Nombres)
+
+```
+
+
+# Importación y exportación 
+
+## Importación
+
+Si bien podemos crear objetos en R, también podemos querer trabajar con datos extraídos de otras fuentes. 
+
+Desde una **url**:
+
+```{r}
+#Librería readr para importar archivos: 
+#install.packages("readr)
+library(readr)
+
+#Defino url
+url <- "https://archivo.infraestructura.gob.ar/dataset/ssisu/20231205_info_publica_datos_barrios.csv"
+barrios_populares <- read_csv(url)
+
+```
+
+*Dato*: Si no sabes o recordas los argumentos de una función, podes llamar a la función `help()` que trae la documentación de la función: 
+
+```{r}
+
+help(read_csv)
+
+```
+
+
+Desde archivo **csv**:
+
+```{r}
+#Chequeo mi ruta
+getwd()
+
+#Reviso archivos
+list.files("../data/clase2")
+
+#Importo
+clase <- "clase2"
+barrios_populares<-read_csv(paste0("../data/", clase, "/20231205_info_publica_datos_barrios.csv"))
+
+
+```
+
+Desde archivo **.sav**:
+
+```{r}
+# install.packages("haven")
+library(haven)
+
+clase<-"clase2"
+base <-read_sav(paste0("../data/",clase, "/Base Porteños 2023.sav"))
+
+# para extraer nombres de variables
+labels <- sapply(base, function(x) attr(x, "label"))
+
+colnames(base) <- labels
+```
+
+Desde archivo **.xlsx**: 
+
+```{r}
+# install.packages("readxl")
+library(readxl)
+
+#Importo
+clase<-"clase2"
+intervenciones <-  read_excel(paste0("../data/",clase,"/intervenciones-2025-datos-abiertos.xlsx"))
+ 
+```
+
+## Exportación
+
+También, puedo querer exportar los datos trabajados en R a otros formato: 
+
+A un archivo **.csv**:
+
+```{r}
+write.csv(registro, paste0("../data/", clase, "/registro.csv"), row.names = F, fileEncoding = "UTF-8")
+```
+
+A un archivo **.xlsx**:
+
+```{r}
+# install.packages("xlsx")
+library(writexl)
+
+write_xlsx(registro, paste0("../data/", clase, "/registro.xlsx"))
+```
+
+A un archivo **.sav**:
+
+```{r}
+#library(haven)
+
+write_sav(registro, paste0("../data/", clase, "/registro.sav"))
+
+```
+
+Por supuesto que hay otros formatos en los que se pueden importar y exportar datos desde R. Pueden encontrar más información [aquí](https://r-coder.com/exportar-datos-r/) o [aquí](https://myrbooksp.netlify.app/import.html).
+
