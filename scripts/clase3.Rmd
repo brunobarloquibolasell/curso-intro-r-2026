@@ -1,0 +1,305 @@
+---
+title: "Introducción al análisis de datos con R para Ciencias Sociales"
+author: "Núcleo de Innovación Social"
+date: "2026-04-29"
+output: html_document
+---
+
+# Tidyverse
+
+## ¿Qué es [Tidyverse](https://tidyverse.org/)? 🤔
+
+`tidyverse` no es solo un paquete de R, es una colección de paquetes diseñados para trabajar juntos de forma armoniosa en el análisis de datos! Piensen en él como un "universo" o "ecosistema" de herramientas.
+
+## Características Clave de Tidyverse:
+
+-   Filosofía "Tidy Data": Organización de datos de forma consistente y fácil de usar (datos "ordenados").
+
+-   Sintaxis Consistente y Verbosa: Funciones con nombres claros (verbos) que hacen tareas específicas. Código fácil de leer y entender.
+
+-   Diseñado para el Flujo de Trabajo de Data Science: Paquetes para cada etapa del análisis: importación, limpieza, transformación, visualización, modelado, comunicación.
+
+-   Énfasis en la Legibilidad y la Reproducibilidad: Código más fácil de escribir, leer, mantener y compartir.
+
+-   Comunidad Activa y Documentación Exhaustiva: Gran apoyo y recursos para aprender y resolver problemas.
+
+Tidyverse contiene los siguientes paquetes: **`ggplot2`**, **`dplyr`**, **`tidyr`**, **`readr`**, **`purr`**, **`tibble`**, **`stringr`**, **`forcats`**. Si bien no vamos a verlos a todos en detalle, pueden explorarlos mediante la [documentación](https://www.tidyverse.org/packages/).
+
+## Instalamos y cargamos librería
+
+```{r}
+# install.packages("tidyverse")
+library(tidyverse)
+```
+
+## Funciones principales
+
+Verbos Básicos del Tidyverse: ¡Acciones con Datos! 🎬
+
+Dentro de `tidyverse`, especialmente en el paquete `dplyr` vamos a trabajar mucho con:
+
+`select()`: Selecciona las columnas que necesitas.
+
+`filter()`: Filas las filas u observaciones que cumplen con ciertas condiciones.
+
+`mutate()`: Crear nuevas columnas a partir de las existentes.
+
+`group_by()`: agrupar filas según los valores de una o más columnas.
+
+`summarize()`: Resume o hace un cálculo para los datos que agrupamos.
+
+`arrange()`: Ordenar filas según los valores de una o más columnas.
+
+# A trabajar
+
+## Levantamos un dataset
+
+```{r}
+clase <- "clase3"
+```
+
+```{r}
+df <- read.csv("https://catalogo.datos.gba.gob.ar/dataset/4becb4b7-0a21-4fef-8f2c-30df7f345a01/resource/3951210e-7e0e-4fed-bbf1-0183e704c9ae/download/establecimientos-educativos-13042026.csv", encoding = "UTF-8")
+
+# si lo anterior falla, lo cargamos local
+# archivo <- list.files(paste0("../data/", clase))
+# 
+# df <- read.csv(paste0("../data/", clase, "/", archivo), encoding = "UTF-8")
+
+```
+
+## Exploración del dataframe
+
+```{r}
+glimpse(df)
+```
+
+```{r}
+colnames(df)
+```
+
+## `select()`
+
+`select()` sirve para seleccionar columnas
+
+```{r}
+# seleccionamos algunas columnas
+head(
+select(df, 
+       municipio_nombre, modalidad, nivel, matricula, mujeres, varones)
+)
+```
+
+```{r}
+# seleccionamos todas excepto algunas columnas
+head(
+select(df, 
+       -c(municipio_id, establecimiento_id, cueanexo, clave)
+       )
+)
+
+# podemos usar el operador "-" o el "!"
+head(
+select(df, 
+       !c(municipio_id, establecimiento_id, cueanexo, clave)
+       )
+)
+```
+
+```{r}
+# seleccionamos una serie de columnas
+head(
+select(df, 
+       30:35)
+)
+```
+
+## `rename()`
+
+`rename()` sirve para renombrar variables, no la usamos tanto porque podemos renombrar variables de muchas manerasm entre ellas usando select() también
+
+```{r}
+#chequeamos nombres originales
+colnames(df)
+
+# renombramos y chequeamos nuevamente
+colnames(rename(df,
+                mail = email,
+                tel = telefono,
+                lat = latitud,
+                lng = longitud))
+
+```
+
+## `filter()`
+
+`filter()` lo usamos para filtrar filas cuyos valores de una o más columnas, coincidan con la condición o condiciones que designamos. Es importante usar bien los operadores que vimos hasta ahora
+
+```{r}
+# me quedo con las escuelas artísticas
+df_artes <- filter(df, depend_func == "Dirección de Educación Artística")
+
+# chequeo
+unique(df_artes$depend_func)
+```
+
+```{r}
+# me quedo con las escuelas que tienen matricula superior a 200 alumnos
+df_200 <- filter(df, matricula > 200)
+
+#chequeo
+min(df_200$matricula)
+```
+
+```{r}
+# me quedo con establecimientos de algunas regiones 
+df_regiones <- filter(df, region_educativa %in% c("Región 1", "Región 2", "Región 3", "Región 4"))
+
+# chequeo
+unique(df_regiones$region_educativa)
+```
+
+## `arrange()`
+
+`arrange()` sirve para ordenar un dataframe según una o más variables (ascendente o descendente)
+
+```{r}
+head(arrange(df, desc(matricula)))
+```
+
+## `mutate()`
+
+Con `mutate()` vamos a trabajar a nivel valores de variables del dataframe. Podemos modificar valores o crear nuevas variables a partir de otras
+
+```{r}
+# calculamos porcentaje de mujeres y varones de los establecimientos
+df_por <- mutate(df, 
+                 por_mujeres = (mujeres / matricula) *100,
+                 por_varones = (varones / matricula) * 100)
+
+head(select(df_por, mujeres, varones, matricula, por_mujeres, por_varones))
+
+```
+
+## concatenamos funciones
+
+Hasta acá vimos las funciones de manera separada, pero si tenemos muchas operaciones que hacer sobre el dataframe, podemos usar el operador `%>%` (pipe) para concatenar funciones **de manera secuencial**
+
+```{r}
+# vamos a trabajar con aquellas escuelas de las regiones 1 a 4, que tengan más de 200 alumnos y vamos a calcular el porcentaje de mujeres y varones de cada distrito, luego ordenaremos de mayor a menor según porcentaje de mujeres
+
+df2 <- df%>%
+  filter(region_educativa %in% c("Región 1", "Región 2", "Región 3", "Región 4") &
+           matricula > 200)%>%
+  mutate(
+    por_mujeres = (mujeres / matricula) *100,
+    por_varones = (varones / matricula) * 100)%>%
+  arrange(desc(por_mujeres))%>%
+  select(municipio_nombre, establecimiento_nombre, region_educativa,
+         mujeres, varones, matricula, por_mujeres, por_varones)
+
+glimpse(df2)
+  
+```
+
+## `group_by()` y `summarise()`
+
+`group_by()` y `summarise()` se usan para agrupar datos y calcular métricas agregadas
+
+```{r}
+df_regiones_agrup <- df%>%
+  group_by(region_educativa)%>%
+  summarise(
+    cantidad_establecimientos = n(),
+    matricula_total = sum(matricula, na.rm = T),
+    varones = sum(varones, na.rm = T),
+    mujeres = sum(mujeres, na.rm = T)
+  )
+
+df_regiones_agrup2 <- df%>%
+  group_by(region_educativa, municipio_nombre)%>%
+  summarise(
+    cantidad_establecimientos = n(),
+    matricula_total = sum(matricula, na.rm = T),
+    varones = sum(varones, na.rm = T),
+    mujeres = sum(mujeres, na.rm = T)
+  )
+```
+
+## `ifelse()`
+
+`ifelse()` sirve para crear o modificar variables a partir de una condición simple (si se cumple → un valor, si no → otro)
+
+```{r}
+# vamos a crear 2 grupos  de establecimientos de acuerdo a si son mayoritariamente de varones o de mujeres
+df_por <- df_por%>%
+  mutate(
+    mayoria_genero = ifelse(por_mujeres > por_varones, #condicion a cumplir
+                            "mujeres", # valor si la condicion es verdadera
+                            "varones") # valor si la condicion es falsa
+  )
+
+# vamos a unificar vategorias de la variable ambito
+unique(df_por$ambito)
+
+df_por <- df_por%>%
+  mutate(
+    ambito = ifelse(ambito %in% c("Rural Disperso", "Rural Agrupado"), #condicion a cumplir
+                    "Rural", # valor si la condicion es verdadera
+                    ambito) # valor si la condicion es falsa
+  )
+
+# chequeamos
+unique(df_por$ambito)
+
+```
+
+## `casewhen()`
+
+`casewhen()` sirve para crear variables a partir de múltiples condiciones. Es más flexible y legible que ifelse() cuando hay varios casos
+
+```{r}
+# vamos a crear una variable numerica de acuerdo al maximo de subvencion que recibe el establecimiento
+df_por <- df_por %>%
+  mutate(
+    porcentaje_subvencion = case_when(
+      subvencion == "Oficial" ~ 0,
+      subvencion == "Sin Subvención                " ~ 0,
+      subvencion == "Subvención Total 100%         " ~ 100,
+      subvencion == "Subvención parcial 80%        " ~ 80,
+      subvencion == "Subvención parcial 70%        " ~ 70,
+      subvencion == "Subvención parcial 60%        " ~ 60,
+      subvencion == "Subvención parcial 50%        " ~ 50,
+      subvencion == "Subvención parcial 40%        " ~ 40
+    )
+  )
+class(df_por$porcentaje_subvencion)
+unique(df_por$porcentaje_subvencion)
+```
+
+## `across()`
+
+`across()` se usa dentro de funciones como mutate() o summarise() para aplicar una misma operación a múltiples columnas al mismo tiempo
+
+```{r}
+# supongamos que por un error de carga de datos, las variables de matricula, mujeres y varones tienen la mitad de los valores que les corresponden
+
+df_por <- df_por%>%
+  mutate(
+    across(
+      .cols = c(matricula, varones, mujeres), 
+      .fns = ~.*2,
+      .names = "{.col}_2")
+  )
+
+# supongamos que necesitamos llevar todas las variables de tipo character a MAYÚSCULAS
+
+df_por <- df_por%>%
+  mutate(
+    across(
+      .cols = where(is.character), 
+      .fns = ~str_to_upper(.)
+      )
+  )
+
+```
