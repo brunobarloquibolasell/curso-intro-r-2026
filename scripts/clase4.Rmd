@@ -1,0 +1,333 @@
+---
+title: "Introducción al análisis de datos con R para Ciencias Sociales"
+author: "Núcleo de Innovación Social"
+date: "2026-05-06"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(skimr)
+
+options(scipen = 999)
+```
+
+# Pivotear una tabla
+
+Pivotear una tabla, es como comer una naranja.
+
+## Formato WIDE
+
+📌 ¿Qué es formato WIDE?
+
+El formato **WIDE** es una forma de estructurar los datos donde cada
+fila representa una unidad de análisis, y cada una de sus
+características o variables se encuentra en una columna distinta. Es
+decir, las distintas mediciones de una misma unidad se distribuyen a lo
+largo de múltiples columnas.
+
+Ventajas del formato WIDE
+
+-   Es más intuitivo y fácil de leer (similar a Excel)
+
+-   Es útil para reportes y tablas finales
+
+-   Permite comparar valores rápidamente entre columnas
+
+-   Es común en datos “crudos” o sistemas operacionales
+
+[![](https://epirhandbook.com/es/images/pivoting/pivot_wider_new.png)](https://epirhandbook.com/es/new_pages/pivoting.es.html)
+
+Vamos a un ejemplo. En este caso trabajaremos con datos de las
+[elecciones presidenciales argentinas
+2023](https://resultados.mininterior.gob.ar/resultados/2023/2/1/0)
+
+```{r}
+# levantamos datos de resultados provisorios de elecciones presidenciales en Argentina 2023
+df_elecciones <- read.csv(
+  "./data/clase4/presentacionDeResultados.csv",
+  encoding = "UTF-8"
+)
+
+glimpse(df_elecciones)
+```
+
+Agrupamos datos para ver resultados de cada partido por provincia
+
+```{r}
+df_elecciones_resumen <- df_elecciones %>%
+  group_by(distrito_nombre, votos_tipo, agrupacion_nombre) %>%   # agrupamos votos 
+  summarise(
+    votos_cantidad = sum(votos_cantidad, na.rm = TRUE)
+  ) %>%
+  group_by(distrito_nombre) %>%   # calculamos porcentaje dentro de cada distrito
+  mutate(
+    total = sum(votos_cantidad[!votos_tipo %in% c("IMPUGNADO", "NULO")], na.rm = TRUE),
+    porcentaje = (votos_cantidad / total) * 100) %>%
+  filter(votos_tipo == "POSITIVO") %>%   # nos quedamos solo con votos válidos
+  select(-total, -votos_cantidad)  # eliminamos columnas auxiliares
+
+head(df_elecciones_resumen)
+```
+
+```{r}
+df_elecciones_wide <- df_elecciones_resumen %>%
+  pivot_wider(
+    
+    # cada agrupación política será una columna
+    names_from = agrupacion_nombre,
+    
+    # los valores serán los porcentajes
+    values_from = porcentaje,
+    
+    # si faltan combinaciones, rellenamos con 0
+    values_fill = 0
+  )
+
+df_elecciones_wide
+```
+
+Con el formato WIDE, obtenemos una fila por unidad de análisis
+(provincia) y una columna para cada variable (diferentes partidos
+políticos). Esto nos permite visualizar rápidamente valores de cada
+característica de la unidad de análisis.
+
+## Formato LONG
+
+El formato **LONG** es una forma de estructurar los datos donde cada
+fila representa una observación de la unidad de análisis, y las
+distintas características o mediciones de esa unidad se organizan en más
+filas en lugar de estar distribuidas en múltiples columnas.
+
+En lugar de tener una columna por cada variable (como en formato
+**wide**), en formato **long** solemos tener:
+
+-   una columna que identifica la unidad de análisis (ej: persona,
+    comuna, año)
+
+-   una columna que indica qué variable estamos observando
+
+-   una columna con el valor de esa variable
+
+[![](https://epirhandbook.com/es/images/pivoting/pivot_longer_new.png)](https://epirhandbook.com/es/new_pages/pivoting.es.html)
+
+Veamos un ejemplo con datos de [establecimientos culturales en
+CABA](https://data.buenosaires.gob.ar/dataset/espacios-culturales):
+
+```{r}
+# levantamos la data
+# Dataset de espacios culturales de CABA
+df <- read.csv(
+  "https://data.buenosaires.gob.ar/dataset/espacios-culturales/resource/juqdkmgo-711-resource/download",
+  encoding = "UTF-8"
+)
+
+# Exploración inicial
+glimpse(df)
+explore <- skim(df) # resumen más completo
+explore
+```
+
+Vamos a calcular algunos valores y frecuencias
+
+```{r}
+# Resumen por comuna y tipo de espacio cultural
+df_resumen <- df %>%
+  group_by(COMUNA, FUNCION_PRINCIPAL) %>%
+  summarise(
+    cantidad_establecimientos = n(), # cantidad de filas
+    cantidad_salas = sum(CANTIDAD_SALAS, na.rm = TRUE), # sumamos la cantidad de salas ignorando NA
+    capacidad = sum(CAPACIDAD_TOTAL, na.rm = TRUE) # sumamos la capacidad de cada sala ignorando NA
+  )
+
+head(df_resumen)
+```
+
+Cada variable es una columna (formato WIDE) y ahora tenemos varias
+métricas en distintas columnas. Esto puede ser un problema si queremos
+por ej
+
+-   hacer gráficos
+
+-   comparar métricas
+
+-   trabajar con ggplot (próximas clases)
+
+Este formato no siempre es el más cómodo, así que vamos a pivotear la
+tabla:
+
+```{r}
+df_long <- df_resumen %>%
+  pivot_longer(
+    cols = c(cantidad_establecimientos, cantidad_salas, capacidad), # columnas que queremos "derretir" o "apilar" en filas
+    names_to = "indicador", # nombre de la única nueva columna que va a contener los nombres de las anteriores columnas
+    values_to = "valor", #nombre de la nueva columna que va a contener los valores de esas anteriores variables
+    values_drop_na = FALSE # opcional. si TRUE, elimina filas donde el valor sea NA
+  )
+
+df_long
+```
+
+🧠 Qué está pasando?
+
+Antes teníamos 3 columnas de métricas
+
+Ahora tenemos 1 columna que indica la métrica (indicador) 1 columna con
+los valores (valor)
+
+## Conclusiones
+
+Pivotear tablas no es transformar datos, es transformar la estructura\
+
+👉 `pivot_longer()` → columnas → filas\
+👉 `pivot_wider()` → filas → columnas
+
+El formato wide es cómodo para mirar datos. El formato long es cómodo
+para analizarlos.
+
+# JOINEAR Tablas
+
+[![](https://ingenieriadesoftware.es/wp-content/uploads/2018/07/sqljoin.jpeg)](https://ingenieriadesoftware.es/tipos-sql-join-guia-referencia/)
+
+Qué es un join? Un join sirve para relacionar dos tablas usando una
+variable en común. Porqué querríamos relacionar tablas? En muchos casos,
+la información no está en una sola tabla, sino en varias, por eso
+necesitamos trabajar con datos relacionales. A veces, cada tabla
+contiene una parte de la información y las mismas se relacionan a través
+de una clave común
+
+Ejemplo:
+
+tabla de barrios tabla de población
+
+```{r}
+# Barrios populares
+df_barrios_populares <- read.csv(
+  "https://archivo.infraestructura.gob.ar/dataset/ssisu/20231205_info_publica_datos_barrios.csv",
+  encoding = "UTF-8"
+)
+
+# Población por municipio
+df_poblacion <- read.csv(
+  "https://datosabiertos.renaper.gob.ar/poblacion_identificada_departamento_agosto_2024.csv",
+  encoding = "UTF-8"
+)
+```
+
+```{r}
+# hacemos una seleccion
+df_barrios_populares2 <- df_barrios_populares %>%
+  filter(provincia == "Córdoba")
+
+df_poblacion2 <- df_poblacion%>%
+  filter(nombre_provincia == "Córdoba")%>%
+  group_by(nombre_provincia, nombre_departamento)%>%
+  summarise(cantidad = sum(cantidad))
+```
+
+## Tipos de joins
+
+### `left_join()`
+
+Mantiene todas las filas de la tabla izquierda.
+
+```{r}
+df_left_join <- df_barrios_populares2 %>%
+  left_join(df_poblacion2, by = c("departamento" = "nombre_departamento"))
+
+head(df_join)
+```
+
+### `rigth_join()`
+
+Mantiene todas las filas de la tabla derecha.
+
+```{r}
+df_right_join <- df_barrios_populares2 %>%
+  right_join(df_poblacion2, by = c("departamento" = "nombre_departamento"))
+
+head(df_right_join)
+```
+
+En este caso, como la tabla de la derecha tiene valores que no se
+encuentran en la tabla de la izquierda, tengo unas filas más que el
+primer join.
+
+### `full_join()`
+
+Mantiene todos los casos de ambas tablas.
+
+```{r}
+df_full_join <- df_barrios_populares2 %>%
+  full_join(df_poblacion2, by = c("departamento" = "nombre_departamento"))
+
+head(df_full_join)
+```
+
+En este caso, como la tabla de la derecha tiene valores que no se
+encuentran en la tabla de la izquierda, tengo unas filas más que el
+primer join.
+
+### `inner_join()`
+
+Solo mantiene los casos que coinciden en ambas tablas.
+
+```{r}
+df_inner_join <- df_barrios_populares2 %>%
+  inner_join(df_poblacion2, by = c("departamento" = "nombre_departamento"))
+
+head(df_inner_join)
+```
+
+En este caso, como la tabla de la derecha tiene valores que no se
+encuentran en la tabla de la izquierda, tengo menos filas más que el
+primer join porque nos quedamos sólo con los valores que matchean.
+
+### `anti_join()`
+
+Devuelve los casos que no tienen match.
+
+```{r}
+df_anti_join <- df_barrios_populares2 %>%
+  anti_join(df_poblacion2, by = c("departamento" = "nombre_departamento"))
+
+head(df_anti_join)
+```
+
+En este caso, como la tabla izquierda encuentra todos los valores en la
+tabla derecha, no tenemos ninguna fila.
+
+Veamos qué pasa si escribimos el join en orden inverso:
+
+```{r}
+df_anti_join2 <- df_poblacion2 %>%
+  anti_join(df_barrios_populares2, by = c("nombre_departamento" = "departamento"))
+
+head(df_anti_join2)
+```
+
+## Problemas y errores típicos
+
+Relación uno a muchos
+
+```{r}
+df_uno_a_muchos <- df_barrios_populares2%>%
+  group_by(departamento)%>%
+  summarise(cantidad_barrios = n(),
+            cantidad_viviendas_aproximadas = sum(cantidad_viviendas_aproximadas),
+            cantidad_familias_aproximada = sum(cantidad_familias_aproximada))%>%
+  filter(departamento == "Punilla")%>%
+  left_join(df_poblacion, by = c("departamento" = "nombre_departamento"))
+```
+
+Problema más grave: muchos a muchos
+
+```{r}
+df_muchos_a_muchos <- df_barrios_populares2%>%
+  # group_by(departamento)%>%
+  # summarise(cantidad_barrios = n(),
+  #           cantidad_viviendas_aproximadas = sum(cantidad_viviendas_aproximadas),
+  #           cantidad_familias_aproximada = sum(cantidad_familias_aproximada))%>%
+  # filter(departamento == "Punilla")%>%
+  left_join(df_poblacion, by = c("departamento" = "nombre_departamento"))
+```
