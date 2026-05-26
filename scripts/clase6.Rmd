@@ -523,3 +523,13 @@ library(plotly)
 
 ggplotly(p3_delitos_comisarias, tooltip = c("comuna", "cantidad_comisarias"))
 ```
+
+
+```{r}
+# guardo el gráfico interactivo
+htmlwidgets::saveWidget(ggplotly(p3_delitos_comisarias, tooltip = c("comuna", "cantidad_comisarias")),
+                        "p3_delitos_comisarias.html",
+                        path_plots,
+                        selfcontained = T)
+```
+
