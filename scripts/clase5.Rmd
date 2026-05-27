@@ -1,0 +1,403 @@
+---
+title: "Introducción al análisis de datos con R para Ciencias Sociales"
+author: "Núcleo de Innovación Social"
+date: "2026-05-13"
+output: html_document
+---
+
+# Análisis Exploratorio
+
+En esta clase trabajaremos herramientas básicas de estadística descriptiva aplicadas a datos reales de la [encuesta del sector IT en Argentina](https://sysarmy.com/blog/posts/resultados-de-la-encuesta-de-sueldos-2026-1/). Veremos cómo resumir y explorar variables numéricas mediante medidas de tendencia central, posición y dispersión, además de identificar valores atípicos y trabajar con valores faltantes. También utilizaremos gráficos simples para entender la distribución de los datos y complementar el análisis exploratorio.
+
+
+```{r}
+library(tidyverse)
+
+options(scipen = 999) # eliminamos notacion cientifica
+```
+
+```{r}
+df <- read.csv("https://raw.githubusercontent.com/DiploDatos/AnalisisyVisualizacion/refs/heads/master/sysarmy_survey_2026_processed.csv", encoding = "UTF-8")
+
+colnames(df)
+```
+
+# Medidas de tendencia central
+
+## Media
+
+La media es el promedio aritmético de un conjunto de datos, se calcula sumando todos los valores y dividiendo el total entre el número de observaciones.
+
+La media es sensible a valores extremos. Un valor muy alto o muy bajo puede influir significativamente en la media, desplazándola hacia el extremo.
+
+```{r}
+mean(df$salary_monthly_NETO, na.rm = TRUE)
+```
+
+```{r}
+# agrupamos por categoria y calculamos el salario neto promedio
+df_seniority_medidas <- df %>%
+  group_by(work_seniority)%>%
+  summarise(media_salarial = mean(salary_monthly_NETO, na.rm = T))
+
+df_seniority_medidas
+```
+
+## Mediana
+
+La mediana es el valor central en un conjunto de datos ordenados. Si el número de observaciones es impar, la mediana es el valor en la posición central. Si es par, la mediana es el promedio de los dos valores centrales. Es una medida de tendencia central que es menos sensible a los valores extremos o atípicos.
+
+```{r}
+median(df$salary_monthly_NETO, na.rm = TRUE)
+```
+
+```{r}
+# agrupamos por categoria y vamos agregando cálculos
+
+df_seniority_medidas <- df %>%
+  group_by(work_seniority)%>%
+  summarise(
+    media_salarial = mean(salary_monthly_NETO, na.rm = T),
+    mediana_salarial = median(salary_monthly_NETO, na.rm = T)
+    )
+
+df_seniority_medidas
+```
+
+## Moda
+
+La moda es el valor que aparece con mayor frecuencia en un conjunto de datos. Es posible que un conjunto de datos tenga una única moda, más de una moda (bimodal o multimodal), o que no tenga ninguna moda si todos los valores son únicos.
+
+```{r}
+df_moda <- df %>%
+  filter(!is.na(salary_monthly_NETO))%>%
+  group_by(work_seniority, salary_monthly_NETO) %>%
+  summarise(n = n(), .groups = "drop") %>%
+  group_by(work_seniority) %>%
+  slice_max(n, n = 1, with_ties = FALSE) %>%
+  rename(moda_salarial = salary_monthly_NETO)
+
+df_seniority_medidas <- df %>%
+  group_by(work_seniority) %>%
+  summarise(
+    media_salarial = mean(salary_monthly_NETO, na.rm = TRUE),
+    mediana_salarial = median(salary_monthly_NETO, na.rm = TRUE)
+  ) %>%
+  left_join(df_moda, by = "work_seniority")
+
+df_seniority_medidas
+```
+
+```{r}
+# otra forma para calcular la moda 
+df_moda2 <- df %>%
+  filter(!is.na(salary_monthly_NETO))%>%
+  count(work_seniority, salary_monthly_NETO, sort = TRUE) %>%
+  group_by(work_seniority) %>%
+  slice_head(n = 1) %>%
+  rename(moda_salarial = salary_monthly_NETO)
+
+df_moda2
+```
+
+## Distribución
+
+Histograma
+
+```{r}
+hist(df$salary_monthly_NETO,
+     col = "salmon",
+     breaks = 50,
+     main = "Distribución de salarios",
+     xlab = "Salario")
+```
+
+```{r}
+# vamos a filtrar algunos valores demasiado altos para ver mejor cómo se distribuyen los salarios
+df2 <- df%>%filter(salary_monthly_NETO < 10000000)
+
+hist(df2$salary_monthly_NETO,
+     col = "salmon",
+     breaks = 50,
+     main = "Distribución de salarios",
+     xlab = "Salario")
+```
+
+# Medidas de posición
+
+## Cuartiles
+
+Los cuartiles dividen un conjunto de datos ordenados en cuatro partes iguales, lo que significa que cada cuartil contiene el 25% de los datos. Hay tres cuartiles principales:
+
+Primer Cuartil (Q1): cuartil inferior, es el valor debajo del cual se encuentra el 25% de los datos. Segundo Cuartil (Q2): es la mediana del conjunto de datos, y divide al conjunto en dos partes iguales (50% de los datos está por debajo y 50% por encima). Tercer Cuartil (Q3): como cuartil superior, es el valor debajo del cual se encuentra el 75% de los datos.
+
+```{r}
+quantile(df$salary_monthly_NETO,
+         probs = c(0.25, 0.5, 0.75, 1),
+         na.rm = TRUE)
+```
+
+## Deciles
+
+Los deciles dividen un conjunto de datos ordenados en diez partes iguales, cada una conteniendo el 10% de los datos. Hay nueve deciles principales, desde el primer decil (D1) hasta el noveno decil (D9).
+
+Primer Decil (D1): valor debajo del cual se encuentra el 10% de los datos. Quinto Decil (D5): coincide con la mediana del conjunto de datos, ya que es el punto que divide el conjunto en dos partes iguales. Noveno Decil (D9): valor debajo del cual se encuentra el 90% de los datos.
+
+```{r}
+quantile(df$salary_monthly_NETO,
+         probs = seq(0, 1, 0.1),
+         na.rm = TRUE)
+```
+
+## Percentiles
+
+Los percentiles dividen un conjunto de datos ordenados en cien partes iguales, de modo que cada percentil corresponde a un 1% del conjunto de datos. Hay 99 percentiles principales, y el percentil 50 coincide con la mediana.
+
+Percentil 1 (P1): valor debajo del cual se encuentra el 1% de los datos. Percentil 50 (P50): coincide con la mediana, es el valor debajo del cual se encuentra el 50% de los datos. Percentil 99 (P99): valor debajo del cual se encuentra el 99% de los datos.
+
+```{r}
+p1 <- quantile(df$salary_monthly_NETO, 0.01, na.rm = TRUE)
+p99 <- quantile(df$salary_monthly_NETO, 0.99, na.rm = TRUE)
+
+p1
+p99
+```
+
+## Outliers
+
+Los outliers son valores que se alejan significativamente del resto de los datos. Tienen un impacto importante en medidas como la media y la varianza.
+
+Pueden aparecer por:
+
+-   errores de carga
+
+-   casos extremos reales
+
+-   comportamientos poco frecuentes
+
+Una forma simple de detectar outliers es usar percentiles:
+
+```{r}
+df_sin_outliers <- df %>%
+  filter(salary_monthly_NETO > p1) %>%
+  filter(salary_monthly_NETO < p99)
+
+nrow(df_sin_outliers)
+```
+
+```{r}
+boxplot(salary_monthly_NETO ~ work_seniority,
+        col = c("salmon", "steelblue", "lightgreen"),
+        data = df_sin_outliers,
+        main = "Boxplot de salarios por seniority",
+        las = 2)
+```
+
+Usamos los percentiles 1 y 99 porque permiten excluir solo los valores más extremos (el 2% total), además son fáciles de calcular e interpretar y no dependen de supuestos sobre la distribución (a diferencia del uso del desvío estándar). Son especialmente útiles cuando los datos no siguen una distribución normal.
+
+## Ranking
+
+```{r}
+df_ranking <- df %>%
+  select(salary_monthly_NETO) %>%
+  mutate(rank = rank(salary_monthly_NETO, na.last = "keep", ties.method = "first"))
+```
+
+# Medidas de dispersión
+
+## Rango
+
+El rango es la diferencia entre el valor máximo y el valor mínimo de una variable.
+
+```{r}
+range(df$salary_monthly_NETO, na.rm = TRUE)
+```
+
+## Varianza
+
+La varianza mide qué tan dispersos están los datos respecto a la media. Cuanto mayor es la varianza, más alejados están los valores del promedio.
+
+```{r}
+var(df$salary_monthly_NETO, na.rm = TRUE)
+```
+
+```{r}
+df_seniority_medidas <- df %>%
+  group_by(work_seniority) %>%
+  summarise(
+    media_salarial = mean(salary_monthly_NETO, na.rm = TRUE),
+    mediana_salarial = median(salary_monthly_NETO, na.rm = TRUE),
+    min = min(salary_monthly_NETO, na.rm = T),
+    max = max(salary_monthly_NETO, na.rm = T),
+    varianza = var(salary_monthly_NETO, na.rm = T)
+  ) %>%
+  left_join(df_moda, by = "work_seniority")
+
+df_seniority_medidas
+```
+
+## Desvío estándar
+
+El desvío estándar es la raíz cuadrada de la varianza y se interpreta en las mismas unidades que la variable. Indica, en promedio, cuánto se alejan los datos respecto a la media.
+
+```{r}
+sd(df$salary_monthly_NETO, na.rm = TRUE)
+```
+
+```{r}
+df_seniority_medidas <- df %>%
+  group_by(work_seniority) %>%
+  summarise(
+    media_salarial = mean(salary_monthly_NETO, na.rm = TRUE),
+    mediana_salarial = median(salary_monthly_NETO, na.rm = TRUE),
+    min = min(salary_monthly_NETO, na.rm = T),
+    max = max(salary_monthly_NETO, na.rm = T),
+    varianza = var(salary_monthly_NETO, na.rm = T),
+    desvio = sd(salary_monthly_NETO, na.rm = T)
+  ) %>%
+  left_join(df_moda, by = "work_seniority")
+
+df_seniority_medidas
+```
+
+En muchas distribuciones, valores que están a más de 3 desvíos estándar de la media pueden considerarse atípicos (outliers).
+
+```{r}
+stats <- df %>%
+  filter(salary_monthly_NETO < 10000000)%>%
+  summarise(
+    media = mean(salary_monthly_NETO, na.rm = TRUE),
+    sd = sd(salary_monthly_NETO, na.rm = TRUE)
+  )
+
+ggplot(df%>%filter(salary_monthly_NETO < 10000000), 
+       aes(x = salary_monthly_NETO)) +
+    # histograma 
+  geom_histogram(aes(y = ..density..),
+                 bins = 50,
+                 fill = "salmon",
+                 col = "black",
+                 alpha = 0.6) +
+  geom_density(fill = "lightblue", alpha = 0.8) +
+  
+  # media
+  geom_vline(xintercept = stats$media, linetype = "solid", size = 1) +
+  
+  # ±1 sd
+  # geom_vline(xintercept = stats$media + stats$sd, linetype = "dashed") +
+  # geom_vline(xintercept = stats$media - stats$sd, linetype = "dashed") +
+  # 
+  # # ±2 sd
+  # geom_vline(xintercept = stats$media + 2*stats$sd, linetype = "dotted") +
+  # geom_vline(xintercept = stats$media - 2*stats$sd, linetype = "dotted") +
+  
+  # ±3 sd
+  geom_vline(xintercept = stats$media + 3*stats$sd, linetype = "dotdash") +
+  geom_vline(xintercept = stats$media - 3*stats$sd, linetype = "dotdash") +
+  
+  labs(
+    title = "Distribución de salarios con desvíos estándar",
+    x = "Salario",
+    y = "Densidad"
+  )
+```
+
+[![](https://www.inbestme.com/es/wp-content/uploads/sites/3/2023/07/Screen-Shot-2018-01-08-at-10.47.21-1024x528.png)](https://www.inbestme.com/es/es/blog/desviacion-estandar-volatilidad-riesgo/)
+
+## Coeficiente de variación
+
+El coeficiente de variación mide la dispersión en relación al promedio. Permite comparar la variabilidad entre variables o datasets con distintas escalas.
+
+```{r}
+sd(df$salary_monthly_NETO, na.rm = TRUE) / mean(df$salary_monthly_NETO, na.rm = TRUE)
+```
+
+```{r}
+df_seniority_medidas <- df %>%
+  group_by(work_seniority) %>%
+  summarise(
+    media_salarial = mean(salary_monthly_NETO, na.rm = TRUE),
+    mediana_salarial = median(salary_monthly_NETO, na.rm = TRUE),
+    min = min(salary_monthly_NETO, na.rm = T),
+    max = max(salary_monthly_NETO, na.rm = T),
+    varianza = var(salary_monthly_NETO, na.rm = T),
+    desvio = sd(salary_monthly_NETO, na.rm = T),
+    coef = desvio / media_salarial
+  ) %>%
+  left_join(df_moda, by = "work_seniority")
+
+df_seniority_medidas
+```
+
+# Transformaciones útiles
+
+## Agrupar en intervalos
+
+```{r}
+df <- df %>%
+  mutate(
+    salario_grupo = cut(
+      salary_monthly_NETO,
+      breaks = c(0, 500000, 1000000, 2000000, Inf),
+      labels = c("0-500k", "500k-1M", "1M-2M", "2M+")
+    )
+  )
+
+table(df$salario_grupo)
+```
+
+## Gráfico de torta (categórica)
+
+```{r}
+pie(table(df$salario_grupo),
+    main = "Distribución de salarios")
+```
+
+## Frecuencia acumulada
+
+```{r}
+frecuencias <- table(df$salario_grupo)
+
+cumsum(frecuencias)
+```
+
+## Valores faltantes
+
+Los valores faltantes representan datos que no están disponibles.
+
+```{r}
+sum(is.na(df$salary_monthly_NETO))
+```
+
+En este caso, los reemplazaremos por la media como una solución simple. Sin embargo, el tratamiento de valores faltantes es un tema en sí mismo y existen [múltiples estrategias](https://www-r--bloggers-com.translate.goog/2023/01/imputation-in-r-top-3-ways-for-imputing-missing-data/?_x_tr_sl=en&_x_tr_tl=es&_x_tr_hl=es&_x_tr_pto=tc) dependiendo del contexto del análisis.
+
+```{r}
+df <- df %>%
+  group_by(work_seniority) %>%
+  mutate(
+    salary_monthly_NETO = ifelse(
+      is.na(salary_monthly_NETO),
+      mean(salary_monthly_NETO, na.rm = TRUE),
+      salary_monthly_NETO
+    )
+  ) %>%
+  ungroup()
+```
+
+# 📊 Reportes automático
+
+Existen librerías que nos permiten obtener rápidamente medidas de casi todas las variables del datafarme. Por lo gral nos dan reportes estandarizados, por lo que si bien son útiles para tener un pantallazo inicial de los datos, no sustituyen el trabajo y criterio del analista de datos.
+
+```{r}
+# install.packages("DescTools")
+library(DescTools)
+
+Desc(df)
+```
+
+```{r}
+# install.packages("DataExplorer")
+library(DataExplorer)
+
+create_report(df)
+```

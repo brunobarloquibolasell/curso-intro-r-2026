@@ -1,0 +1,535 @@
+---
+title: "Introducción al análisis de datos con R para Ciencias Sociales"
+subtitle: "Clase de Visualización con ggplot2"
+author: "Núcleo de Innovación Social"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r }
+library(tidyverse)
+library(lubridate)
+library(skimr)
+
+options(scipen = 999) # eliminamos notación científica de números
+```
+
+# 1. Carga de datos
+
+En esta clase vamos a trabajar con datos de [delitos en Ciudad de Buenos Aires](https://data.buenosaires.gob.ar/dataset/delitos)
+
+## 1.A Desde la web (no siempre disponible)
+
+```{r carga-web, eval=FALSE}
+# https://data.buenosaires.gob.ar/dataset/delitos
+df_delitos <- read.csv(
+  "https://cdn.buenosaires.gob.ar/datosabiertos/datasets/ministerio-de-justicia-y-seguridad/delitos/delitos_2023.csv",
+  encoding = "UTF-8"
+)
+```
+
+## 1.B Desde archivo local
+
+```{r carga-local}
+
+clase <- "clase6"
+
+df_delitos <- read.csv(
+  paste0("../data/", clase, "/delitos_2023.csv"),
+  sep = ",",
+  encoding = "UTF-8"
+)
+```
+
+# 2. Exploración del dataframe
+
+```{r exploracion}
+head(df_delitos)
+tail(df_delitos, n = 10)
+
+glimpse(df_delitos) # variables y tipo de datos
+
+explore <- skim(df_delitos) # resumen de datos faltantes y distribuciones
+
+unique(df_delitos$franja)  # valores únicos de 'franja'
+unique(df_delitos$tipo)
+unique(df_delitos$comuna)
+```
+
+# 3. Limpieza de datos
+
+```{r limpieza}
+df_delitos2 <- df_delitos %>%
+  mutate(
+    tipo_delito = as.factor(tipo),
+    fecha       = ymd(fecha),
+    horario     = as.numeric(franja),
+    comuna = case_when(
+      comuna == "CC-08"       ~ "8",
+      comuna == "CC-09"       ~ "9",
+      comuna == "CC-01 NORTE" ~ "1",
+      comuna == "CC-01 SUR"   ~ "1",
+      comuna == "CC-04"       ~ "4",
+      comuna == "CC-07"       ~ "7",
+      comuna == "CC-15"       ~ "15",
+      comuna == "CC-02"       ~ "2",
+      comuna == "CC-12"       ~ "12",
+      comuna == "CC-10"       ~ "10",
+      comuna == "CC-06"       ~ "6",
+      comuna == "CC-13"       ~ "13",
+      comuna == "CC-05"       ~ "5",
+      comuna == "CC-03"       ~ "3",
+      comuna == "CC-14"       ~ "14",
+      comuna == "CC-11"       ~ "11",
+      TRUE ~ comuna
+    )
+  ) %>%
+  mutate(comuna = as.numeric(comuna)) %>%
+  select(-c(tipo, franja)) # eliminamos las columnas originales ya transformadas
+
+unique(df_delitos2$comuna)
+```
+
+```{r limpieza-coordenadas}
+# Limpieza de latitud y longitud
+df_delitos2 <- df_delitos2 %>%
+  mutate(
+    latitud  = str_remove_all(latitud, "\\."),
+    latitud  = str_squish(latitud),
+    latitud  = str_replace(latitud, "(^-?\\d{2})", "\\1."),
+    latitud  = as.numeric(latitud),
+    longitud = as.numeric(
+      str_replace_all(
+        str_squish(str_remove_all(longitud, "\\.")),
+        "(^-?\\d{2})", "\\1."
+      )
+    )
+  )
+```
+
+# 4. Estructura de un gráfico en ggplot2
+
+Los gráficos en R son como las cebollas: **tienen capas**.
+
+```{r estructura-grafico, eval=FALSE}
+# Esquema conceptual de un gráfico completo en ggplot2
+mi_grafico <- ggplot(df_delitos,
+                     aes(x = variable_independiente,
+                         y = variable_dependiente)) +
+  geom_point() +          # geometría principal
+  geom_line() +           # se pueden combinar geometrías
+  scale_y_continuous() +  # escala del eje Y
+  scale_colour_brewer() + # paleta de colores
+  theme() +               # estética del fondo, textos, etc.
+  facet_grid() +          # sub-gráficos según alguna variable
+  coord_flip() +          # sistema de coordenadas
+  labs()                  # títulos y etiquetas de ejes
+```
+
+## 4.1 Barplot — Gráfico de barras paso a paso
+
+Preparamos el dataframe agrupado por comuna y tipo de delito:
+
+```{r df-barplot}
+df1_delitos_comuna <- df_delitos2 %>%
+  group_by(comuna, tipo_delito) %>%
+  summarise(cantidad = n()) %>%
+  drop_na()
+```
+
+### Capa 1 — Lienzo vacío
+
+```{r barplot-capa1}
+p1_delito_comuna <- ggplot()
+p1_delito_comuna
+```
+
+### Capa 2 — Lienzo con ejes
+
+```{r barplot-capa2}
+p1_delito_comuna <- ggplot(
+  data = df1_delitos_comuna,
+  aes(x = comuna,
+      y = cantidad)
+)
+p1_delito_comuna
+```
+
+### Capa 3 — Lienzo con ejes y geometría
+
+```{r barplot-capa3}
+p1_delito_comuna <- ggplot(
+  data = df1_delitos_comuna,
+  aes(x = reorder(comuna, cantidad),
+      y = cantidad)
+) +
+  geom_col()
+
+p1_delito_comuna
+```
+
+### Capa 4 — Lienzo con ejes, geometría y escalas
+
+```{r barplot-capa4}
+p1_delito_comuna <- ggplot(
+  data = df1_delitos_comuna,
+  aes(x = reorder(comuna, cantidad),
+      y = cantidad)
+) +
+  geom_col() +
+  scale_y_continuous(n.breaks = 7)
+
+p1_delito_comuna
+```
+
+### Capa 5 — Lienzo con ejes, geometría, escalas y colores
+
+```{r barplot-capa5}
+p1_delito_comuna <- ggplot(
+  data = df1_delitos_comuna,
+  aes(x = reorder(comuna, cantidad),
+      y = cantidad,
+      fill = tipo_delito)
+) +
+  geom_col(position = "stack") +   # columnas apiladas
+  # geom_col(position = "dodge") + # columnas agrupadas
+  # geom_col(position = "fill") +  # apiladas al 100%
+  scale_y_continuous(n.breaks = 7)
+
+p1_delito_comuna
+```
+
+### Capa 6 — Lienzo con ejes, geometría, escalas, colores y coordenadas
+
+```{r barplot-capa6}
+p1_delito_comuna <- ggplot(
+  data = df1_delitos_comuna,
+  aes(x = reorder(comuna, cantidad),
+      y = cantidad,
+      fill = tipo_delito)
+) +
+  geom_col(position = "stack") +
+  scale_y_continuous(n.breaks = 7) +
+  coord_flip()
+
+p1_delito_comuna
+```
+
+### Capa 7 — Con colores manuales
+
+```{r barplot-capa7}
+colores_custom <- c(
+  "Amenazas"   = "#1f77b4",
+  "Homicidios" = "#d62728",
+  "Hurto"      = "#2ca02c",
+  "Lesiones"   = "#ff7f0e",
+  "Robo"       = "purple",
+  "Vialidad"   = "#8c564b"
+)
+
+p1_delito_comuna <- ggplot(
+  data = df1_delitos_comuna,
+  aes(x = reorder(comuna, cantidad),
+      y = cantidad,
+      fill = tipo_delito)
+) +
+  geom_col(position = "stack") +
+  scale_y_continuous(n.breaks = 7) +
+  scale_fill_manual(values = colores_custom) +
+  coord_flip()
+
+p1_delito_comuna
+```
+
+### Capa 8 — Con títulos y etiquetas
+
+```{r barplot-capa8}
+p1_delito_comuna <- p1_delito_comuna +
+  labs(
+    title   = "Cantidad de delitos por comuna",
+    caption = "Fuente: datos abiertos GCBA",
+    x       = "Comuna",
+    y       = "Cantidad",
+    fill    = "Tipo de delito"
+  )
+
+p1_delito_comuna
+```
+
+### Capa 9 — Con tema y retoques estéticos finales
+
+```{r barplot-capa9}
+p1_delito_comuna <- p1_delito_comuna +
+  theme_minimal() +
+  theme(
+    legend.position  = "bottom",
+    axis.text.y      = element_text(size = 15),
+    plot.background  = element_rect(fill = "white")
+  )
+
+p1_delito_comuna
+```
+
+## 4.2 Variante con facetado por tipo de delito
+
+```{r barplot-tidytext}
+# install.packages("tidytext")
+library(tidytext)
+
+p1_delito_comuna_facet <- ggplot(
+  df1_delitos_comuna,
+  aes(x    = reorder_within(comuna, cantidad, tipo_delito),
+      y    = cantidad,
+      fill = tipo_delito)
+) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_x_reordered() +
+  scale_fill_manual(values = colores_custom) +
+  coord_flip() +
+  facet_wrap(~tipo_delito, scales = "free") +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10)) +
+  labs(
+    x       = "Comuna",
+    y       = "Cantidad",
+    fill    = "Tipo de delito",
+    title   = "Cantidad de delitos por comuna",
+    caption = "Fuente: datos abiertos GCBA"
+  )
+
+p1_delito_comuna_facet
+
+# más info: https://juliasilge.com/blog/reorder-within/
+```
+
+## 4.3 Linegraph — Gráfico de líneas
+
+```{r linegraph}
+df2_delitos_fecha <- df_delitos2 %>%
+  group_by(fecha, tipo_delito) %>%
+  summarise(cantidad = n())
+
+p2_delitos_fecha <- ggplot(
+  df2_delitos_fecha,
+  aes(x     = fecha,
+      y     = cantidad,
+      color = tipo_delito)
+) +
+  geom_line(size = 1, alpha = 0.8)
+  # geom_smooth()
+
+p2_delitos_fecha
+```
+
+## 4.4 Scatterplot — Gráfico de puntos
+
+```{r scatterplot-prep}
+df3_barrios <- df_delitos2 %>%
+  filter(longitud < -58 & longitud > -59) %>% # CABA está en este rango
+  drop_na() %>%
+  mutate(
+    lat = ifelse(latitud < -35 | latitud > -34.0, longitud, latitud),
+    lng = ifelse(latitud < -35 | latitud > -34.0, latitud, longitud)
+  )
+```
+
+```{r scatterplot-un-barrio}
+barrio_particular <- "PALERMO"
+
+p3_delitos_un_barrio <- ggplot(
+  df3_barrios %>% filter(barrio == barrio_particular),
+  aes(x     = lng,
+      y     = lat,
+      color = tipo_delito)
+) +
+  geom_point() +
+  coord_sf()
+
+p3_delitos_un_barrio
+```
+
+```{r scatterplot-varios-barrios}
+p3_delitos_varios_barrios <- ggplot(
+  df3_barrios %>%
+    filter(barrio %in% c("PALERMO", "FLORES", "PATERNAL", "LINIERS")),
+  aes(x     = lng,
+      y     = lat,
+      color = tipo_delito)
+) +
+  geom_jitter() +
+  coord_sf()
+
+p3_delitos_varios_barrios
+```
+
+```{r scatterplot-comisarias}
+df_comisarias <- read.csv(
+  "https://cdn.buenosaires.gob.ar/datosabiertos/datasets/comisarias-policia-de-la-ciudad/comisarias-policia-de-la-ciudad.csv",
+  encoding = "UTF-8"
+)
+
+df_comisarias2 <- df_comisarias %>%
+  group_by(comuna) %>%
+  summarise(cantidad_comisarias = n())
+
+df3_comisarias <- df1_delitos_comuna %>%
+  left_join(df_comisarias2)
+
+p3_delitos_comisarias <- ggplot(
+  df3_comisarias %>% mutate(comuna = as.factor(comuna)),
+  aes(x     = cantidad_comisarias,
+      y     = cantidad,
+      color = comuna)
+) +
+  geom_jitter(size = 2) +
+  facet_wrap(~tipo_delito, scales = "free_y") +
+  theme_minimal()
+
+p3_delitos_comisarias
+```
+
+## 4.5 Heatmap — Mapa de calor
+
+```{r heatmap-basico}
+df4_dias_horarios <- df_delitos2 %>%
+  mutate(dia = wday(fecha, label = TRUE)) %>%
+  group_by(dia, horario) %>%
+  summarise(cantidad = n())
+
+p4_dias_horarios <- ggplot(
+  df4_dias_horarios,
+  aes(x    = dia,
+      y    = horario,
+      fill = cantidad)
+) +
+  geom_tile() +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1) +
+  labs(title = "Cantidad de delitos por día y hora")
+
+p4_dias_horarios
+```
+
+```{r heatmap-mejorado}
+p4_dias_horarios <- ggplot(
+  df4_dias_horarios,
+  aes(x    = dia,
+      y    = horario,
+      fill = cantidad)
+) +
+  geom_tile(color = "white", lwd = 1.5, linetype = 1) +
+  scale_fill_distiller(palette = "YlOrRd", direction = 1) +
+  theme_minimal() +
+  labs(title = "Cantidad de delitos por día y hora")
+
+p4_dias_horarios
+```
+
+# 5. Combinaciones y extras
+
+## 5.1 Combinar líneas y puntos
+
+```{r lineas-puntos}
+df5_delitos_por_fecha <- df_delitos2 %>%
+  mutate(mes = round_date(fecha, unit = "month")) %>%
+  group_by(mes, tipo_delito) %>%
+  summarise(cantidad = n())
+
+p5_delitos_mes <- ggplot(
+  df5_delitos_por_fecha,
+  aes(x     = mes,
+      y     = cantidad,
+      color = tipo_delito)
+) +
+  geom_line() +
+  geom_point() +
+  theme_minimal() +
+  scale_y_log10()
+
+p5_delitos_mes
+```
+
+## 5.2 Heatmap con texto superpuesto
+
+```{r heatmap-texto}
+p4_dias_horarios_b <- p4_dias_horarios +
+  geom_text(aes(label = cantidad),
+            color = "black",
+            size  = 3) +
+  theme(legend.position = "none")
+
+p4_dias_horarios_b
+```
+
+## 5.3 Formatear eje X con fechas
+
+```{r eje-fecha}
+p2_delitos_fecha_b <- p2_delitos_fecha +
+  scale_x_date(date_breaks = "1 month", date_labels = "%Y %b") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Evolución de delitos en el tiempo")
+
+p2_delitos_fecha_b
+# más info: https://www.r-bloggers.com/2018/06/customizing-time-and-date-scales-in-ggplot2/
+```
+
+## 5.4 Paletas de color
+
+```{r paletas-color}
+# Con scale_color_brewer (para estética 'color')
+p2_delitos_fecha_b <- p2_delitos_fecha_b +
+  scale_color_brewer(palette = "Dark2")
+
+p2_delitos_fecha_b
+
+# Con scale_fill_manual (para estética 'fill')
+p1_delito_comuna_facet <- p1_delito_comuna_facet +
+  scale_fill_manual(values = colores_custom)
+
+p1_delito_comuna_facet
+```
+
+# 6. Guardar gráficos
+
+```{r guardar, eval=FALSE}
+dir.create("plots")
+path_plots <- "./plots"
+
+ggsave(
+  filename = "1 Cantidad de delitos por comuna.png",
+  plot     = p1_delito_comuna_facet,
+  device   = "png",
+  path     = path_plots,
+  width    = 20,
+  height   = 15,
+  units    = "cm"
+)
+```
+
+# 7. Gráficos interactivos con plotly
+
+```{r plotly, eval=FALSE}
+# install.packages("plotly")
+library(plotly)
+
+ggplotly(p3_delitos_comisarias, tooltip = c("comuna", "cantidad_comisarias"))
+```
+
+
+```{r}
+# guardo el gráfico interactivo
+htmlwidgets::saveWidget(ggplotly(p3_delitos_comisarias, tooltip = c("comuna", "cantidad_comisarias")),
+                        "p3_delitos_comisarias.html",
+                        path_plots,
+                        selfcontained = T)
+```
+
